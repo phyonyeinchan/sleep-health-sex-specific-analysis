@@ -1,0 +1,141 @@
+---
+title: "Sex-Specific Analysis of Sleep Patterns and Cardiovascular Health"
+author: "Phyo Nyein Chan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## 1. Introduction & Research Objectives
+This epidemiological study investigates how sleep metrics and lifestyle factors influence cardiovascular health indicators, with a primary focus on identifying **sex-specific differences**. Utilizing the Kaggle *Sleep Health and Lifestyle Dataset* (n=374), this project employs descriptive statistics and formal hypothesis testing (**Independent t-test** and **ANOVA**) to ascertain whether sleep disturbances and cardiac workloads vary significantly between male and female cohorts.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+```
+
+---
+
+## 2. Data Loading & Inspection
+We load the dataset and evaluate its baseline columns to confirm variable structures and ensure no data points are missing.
+
+```{r load_data}
+# Load the dataset
+sleep_data <- read_csv("Sleep_health_and_lifestyle_dataset.csv")
+
+# Inspect dataset anatomy
+glimpse(sleep_data)
+
+# Check for missing values
+cat("\nMissing Values Count:\n")
+colSums(is.na(sleep_data))
+```
+
+### *Methodological Interpretation:*
+The dataset contains 374 clinical observations and 13 columns covering metrics like `Gender`, `Age`, `Sleep Duration`, `Quality of Sleep`, `Heart Rate`, and `Blood Pressure`. No missing values are present across core variables, making the dataset highly valid for robust parametric testing.
+
+---
+
+## 3. Descriptive Statistics & Data Visualization
+We visualize the dynamic relationship between **Gender**, **Sleep Duration**, and **Heart Rate** to understand baseline variations prior to statistical validation.
+
+```{r visualization}
+# Boxplot for Sleep Duration by Gender
+ggplot(sleep_data, aes(x = Gender, y = `Sleep Duration`, fill = Gender)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(title = "Distribution of Sleep Duration Across Genders",
+       x = "Gender", y = "Sleep Duration (Hours)") +
+  theme_minimal()
+```
+
+### *Medical Interpretation of the Sleep Distribution:*
+Preliminary visualization shows noticeable shifts in central tendencies. The median sleep duration for female subjects appears slightly higher than that of males. To confirm whether this visible margin is a true clinical variance or random chance, we must deploy inferential statistics.
+
+---
+
+## 4. Hypothesis Testing - I: Independent Sample t-test
+We evaluate whether the mean difference in **Sleep Duration** between males and females is statistically significant.
+- **Null Hypothesis ($H_0$):** There is no difference in mean sleep duration between males and females.
+- **Alternative Hypothesis ($H_1$):** There is a significant difference in mean sleep duration between males and females.
+
+```{r t_test}
+# Perform Independent Two-Sample t-test
+t_test_result <- t.test(`Sleep Duration` ~ Gender, data = sleep_data)
+print(t_test_result)
+```
+
+### *Statistical Interpretation of t-test:*
+Check the resulting $p$-value from the console output. If $p < 0.05$, we reject the null hypothesis and conclude that biological sex significantly dictates baseline sleep architecture duration.
+
+---
+
+## 5. Hypothesis Testing - II: Analysis of Variance (ANOVA)
+Next, we evaluate if cardiovascular workload, represented by resting **Heart Rate**, significantly varies across different **Sleep Disorders** (None, Insomnia, Sleep Apnea) and whether gender mediates these changes.
+
+```{r anova_test}
+# One-Way ANOVA: Testing Heart Rate across Sleep Disorders
+anova_result <- aov(`Heart Rate` ~ `Sleep Disorder`, data = sleep_data)
+summary(anova_result)
+```
+
+### *Statistical Interpretation of ANOVA:*
+The ANOVA test quantifies the variance in cardiac stress (`Heart Rate`) across different clinical categories of sleep disorders. A $p$-value lower than 0.05 indicates that chronic sleep disruptions, such as Sleep Apnea or Insomnia, correlate directly with altered resting cardiovascular rates.
+## 6. Advanced Post-Hoc Analysis & Factor Interactions
+To explore specific group differences and evaluate whether gender intermediates the relationship between sleep disorders and cardiovascular stress, we conduct a Tukey HSD test and a Two-Way ANOVA.
+```{r advanced_statistics}
+# ၁။ ANOVA မော်ဒယ်ကို Tukey စစ်ဆေးချက်အတွက် ပိုမိုတိကျသော ပုံစံဖြင့် ပြန်လည်တည်ဆောက်ခြင်း
+anova_model_fixed <- aov(sleep_data$`Heart Rate` ~ as.factor(sleep_data$`Sleep Disorder`))
+
+# ၂။ Post-Hoc Testing (Tukey HSD) ပြုလုပ်ခြင်း
+cat("--- Tukey HSD Pairwise Comparisons --- \n")
+tukey_result <- TukeyHSD(anova_model_fixed)
+print(tukey_result)
+
+# ၃။ Two-Way ANOVA with Interaction (Gender * Sleep Disorder)
+cat("\n--- Two-Way ANOVA with Interaction --- \n")
+two_way_anova <- aov(sleep_data$`Heart Rate` ~ as.factor(sleep_data$Gender) * as.factor(sleep_data$`Sleep Disorder`))
+summary(two_way_anova)
+```
+### *Medical Interpretation of Advanced Statistics:*
+- **Tukey HSD:** This pairwise comparison isolates exactly where the cardiac workload shifts. It quantifies whether patients with Sleep Apnea experience significantly higher or lower resting heart rates compared to those with Insomnia or no disorders.
+- **Two-Way ANOVA Interaction:** If the interaction term `Gender:Sleep Disorder` yields a $p$-value $< 0.05$, it proves that the impact of sleep disorders on cardiovascular workload **differs significantly depending on whether the patient is male or female**, fulfilling a core requirement of sex-specific epidemiological evaluation.
+
+---
+
+## 7. Medical Machine Learning: Decision Tree Classification
+To translate these epidemiological insights into a predictive clinical layout, we train a Decision Tree algorithm to automatically classify the presence or absence of a **Sleep Disorder** based on demographic and cardiac biomarkers.
+
+```{r medical_ml}
+# Load required machine learning packages
+# install.packages("rpart")
+# install.packages("rpart.plot")
+library(rpart)
+library(rpart.plot)
+library(caret)  
+# Data preprocessing for machine learning
+ml_sleep_data <- sleep_data %>%
+  mutate(Disorder_Status = ifelse(`Sleep Disorder` == "None", "No Disorder", "Disorder Present"),
+         Disorder_Status = as.factor(Disorder_Status),
+         Gender = as.factor(Gender))
+
+# Set random seed for reproducibility
+set.seed(456)
+
+# Split data into Training (80%) and Testing (20%) sets
+train_idx <- createDataPartition(ml_sleep_data$Disorder_Status, p = 0.8, list = FALSE)
+train_set <- ml_sleep_data[train_idx, ]
+test_set  <- ml_sleep_data[-train_idx, ]
+
+# Train Decision Tree Classifier
+dt_model <- rpart(Disorder_Status ~ Gender + Age + `Sleep Duration` + `Quality of Sleep` + `Heart Rate`, 
+                  data = train_set, 
+                  method = "class")
+
+# Plot the clinical decision flowchart
+rpart.plot(dt_model, main = "Clinical Decision Tree for Sleep Disorder Prediction", 
+           box.palette = "RdBu", shadow.col = "gray", nn = TRUE)
+
+# Evaluate ML model accuracy on the test set
+dt_predictions <- predict(dt_model, test_set, type = "class")
+cat("\n--- Machine Learning Model Accuracy --- \n")
+confusionMatrix(dt_predictions, test_set$Disorder_Status)
+```
