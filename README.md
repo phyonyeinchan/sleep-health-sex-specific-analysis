@@ -40,5 +40,4 @@ The core objectives of this research project are:
 ---
 
 ## 🔗 6. Live Interactive Report
-[👉 CLICK HERE TO VIEW THE FULL INTERACTIVE SLEEP REPORT](https://phyonyeinchan.github.io/sleep-health-sex-specific-analysis/)
-*(Note: Remember to update this link with your actual GitHub Pages URL once deployed)*
+[👉 CLICK HERE TO VIEW THE FULL INTERACTIVE SLEEP REPORT]https://phyonyeinchan.github.io/sleep-health-sex-specific-analysis/
